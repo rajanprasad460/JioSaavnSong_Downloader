@@ -14,14 +14,14 @@ clear;
 % o_search_text = 'Kavita Krishnamurti Subramaniam Songs';
 % o_search_text = 'Ravindra Jain Songs';
 % o_search_text = 'Ishq (Original Motion Picture Soundtrack)';
-o_search_text = 'Guru';
-% o_search_text = 'tere bina';
+% o_search_text = 'Guru';
+o_search_text = 'tere bina';
 % o_search_text = 'rait zara si';
 
 
-o_search_type = 'ALBUM';
+% o_search_type = 'ALBUM';
 % o_search_type = 'ARTIST';
-% o_search_type = 'SONG';
+o_search_type = 'SONG';
 %%  Actual progress section
 searchtext = strrep(o_search_text,' ','+');
 
@@ -53,15 +53,28 @@ if strcmp(o_search_type,'SONG')
     key = input(['\n Please enter song index [1,2,3,...] to be downloaded',':']);
 
     mydata_m.results =  mydata_m.results(key);
+    %% ask user if he/she only want to download that song or all from the album
+    user_choice = input(['\n Do you want to download all song of the containing album [1 for Yes/ 0 for No]',':']);
+    if user_choice == 1
+        % Do the work
+        o_search_text = mydata_m.results.more_info.album;
+        searchtext = strrep(o_search_text,' ','+');
+        o_search_type = 'ALBUM';
+    end
 end
 
 
 %% Extract the result and work on it
 for i = 1:length(mydata_m.results)
     if contains(o_search_type,{'ALBUM','ARTIST'})
-        if contains(mydata_m.results(i).title,o_search_text)
+        if user_choice == 0
+            if contains(mydata_m.results(i).title,o_search_text)
+                %% Downloader in action
+                Downloader(mydata_m,i,o_search_type,user_choice);
+            end
+        else
             %% Downloader in action
-            Downloader(mydata_m,i,o_search_type)
+            Downloader(mydata_m,i,o_search_type,user_choice);
         end
     end
     if strcmp(o_search_type,'SONG')
@@ -137,15 +150,24 @@ end
 
 
 
-function Downloader(mydata_m,i,o_search_type)
+function Downloader(mydata_m,i,o_search_type,user_choice)
 
-c_folder = strcat(cd,'\',strrep(mydata_m.results(i).title,' ','_'));
+if user_choice == 1
+    c_folder = strcat(cd,'\',strrep(mydata_m.results(i).more_info.album,' ','_'));
+else
+    c_folder = strcat(cd,'\',strrep(mydata_m.results(i).title,' ','_'));
+end
 %% If the folder doesn't exist, create it
 if ~exist(c_folder,"dir")
     mkdir(c_folder)
 end
 
-tokens_1 =  strsplit(mydata_m.results(i).perma_url,'/');
+if user_choice == 1
+    tokens_1 =  strsplit(mydata_m.results(i).more_info.album_url,'/');
+else
+    tokens_1 =  strsplit(mydata_m.results(i).perma_url,'/');
+end
+
 tokens_1 = tokens_1{1,end};
 %====== Url to specific album/artist  ========================
 if strcmp(o_search_type,'ALBUM')
@@ -160,6 +182,9 @@ end
 %% ======= Read all the songs of specific album/artist ==================
 mypage = webread(url);
 mydata = jsondecode(mypage);
+if user_choice == 1
+    mydata_m.results = mydata.list;
+end
 %% ============ Download all songs of the specific album/artist if allowed ======
 for j =1:length(mydata.list)
     % Identifying the encrypted media url
